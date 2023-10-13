@@ -1,0 +1,2 @@
+Add references for vectorization
+Add references for plot.ipynb to run sys commands
