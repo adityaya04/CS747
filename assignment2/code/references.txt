@@ -1,2 +1,7 @@
-Add references for vectorization
-Add references for plot.ipynb to run sys commands
+1) I referred to the following links to understand axes in numpy and to vectorize my code to make it run faster :
+  - https://towardsdatascience.com/a-visual-guide-to-multidimensional-numpy-array-aggregation-97a8960b3c59
+  - https://stackoverflow.com/questions/40200070/what-does-axis-0-do-in-numpys-sum-function
+
+2) I referred to this link to learn how to run linux commands using a python script to generate the plots required for analysis - https://www.section.io/engineering-education/how-to-execute-linux-commands-in-python/
+
+3) I referred to this link to learn how to invert the mapping of a dictionary in python as I used dictionaries in task 2 to go from the positions of players and ball possession to state indices and vice-versa - https://stackoverflow.com/questions/483666/reverse-invert-a-dictionary-mapping

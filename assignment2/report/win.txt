@@ -1,0 +1,3 @@
+First policy - 0.175
+Second policy - 0.0875
+Third policy - 0.1552 

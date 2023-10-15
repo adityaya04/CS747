@@ -46,19 +46,18 @@ class MDP:
         V_new = np.linalg.solve(A, b)
         return V_new
     
-    def action_value(self, s, a, Pi):
-        V = self.evaluate_value(Pi)
+    def action_value(self, s, a, V):
         T_sa = self.T[s, a, :]
         R_sa = self.R[s, a, :]
         q = np.sum(T_sa * (R_sa + self.gamma * V))
         return q
     
-    def get_pi_star(self):
+    def get_pi_star(self, V):
         Pi = np.zeros(self.numStates, dtype=np.int32)
         for i in range(self.numStates):
             avals = np.zeros(self.numActions)
             for j in range(self.numActions):
-                avals[j] = self.action_value(i, j, Pi)
+                avals[j] = self.action_value(i, j, V)
             Pi[i] = np.argmax(avals)
         return Pi
     
@@ -75,16 +74,16 @@ class MDP:
         prob.solve(pulp.PULP_CBC_CMD(msg=0))
         V_dict = {v.name[1:]: v.varValue for v in prob.variables()}
         V_star = np.array([V_dict[str(i)] for i in range(self.numStates)])
-        return V_star, self.get_pi_star()
+        return V_star, self.get_pi_star(V_star)
     
-    def improving_actions(self, Pi, s):
-        V_pi = self.evaluate_value(Pi)
-        action_values = np.array([self.action_value(s, i, Pi) for i in range(self.numActions)])
+    def improving_actions(self, V_pi, s):
+        action_values = np.array([self.action_value(s, i, V_pi) for i in range(self.numActions)])
         IA = np.where(action_values - V_pi[s] > 1e-9)[0]
         return IA.tolist()
     
     def improvable_states(self, Pi):
-        improving_actions_all = [self.improving_actions(Pi, i) for i in range(self.numStates)]
+        V_pi = self.evaluate_value(Pi)
+        improving_actions_all = [self.improving_actions(V_pi, i) for i in range(self.numStates)]
         IS_indices = np.where(np.array([len(ia) > 0 for ia in improving_actions_all]))[0]
         IS = {i: improving_actions_all[i] for i in IS_indices}
         return IS

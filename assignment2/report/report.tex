@@ -40,183 +40,181 @@
 \maketitle
 \section*{Task 1}
 
-\subsection*{UCB}
+\subsection*{Value Iteration}
+\begin{lstlisting}[language=Python]      
+def B_star(self, Vt):
+    T = self.T 
+    R = self.R 
+    gamma = self.gamma        
+    avals = np.sum(T * (R + gamma * Vt), axis=2)
+    V = np.max(avals, axis=1)
+    Pi = np.argmax(avals, axis=1)
+    return V, Pi
 
-\begin{figure}[H]
-    \begin{center}
-        \includegraphics[width=0.8\textwidth]{../images/plot1.png}
-        
-        \caption{Regret vs Horizon for UCB algorithm}
-    \end{center}
- \end{figure}
- Regret increases with horizon as expected and follows a logarithmic variation
- \begin{lstlisting}[language=Python]      
-    class UCB(Algorithm):
-    def __init__(self, num_arms, horizon):
-        super().__init__(num_arms, horizon)
-        self.ucbs = np.zeros(num_arms)
-        self.u = np.zeros(num_arms)
-        self.p_hat = np.zeros(num_arms)
-    
-    def give_pull(self):
-        t = sum(self.u)
-        self.ucbs = self.p_hat + np.sqrt(2 * np.log(t) / self.u)
-        return np.argmax(self.ucbs)
-    
-    def get_reward(self, arm_index, reward):
-        self.u[arm_index] += 1
-        n = self.u[arm_index]
-        mean = self.p_hat[arm_index]
-        new_mean = ((n - 1) / n) * mean + (reward / n)
-        self.p_hat[arm_index] = new_mean\end{lstlisting}
-    \textbf{Code explanation :} \texttt{self.ucbs} is an array containing
-    the UCBs of all the arms in a given iteration. \texttt{self.u} contains
-    the number of times each arm has been pulled till the current iteration. 
-    \texttt{self.p\_hat} contains the empirical means of all the arms
-    based on pulls till the current iteration. 
-    
-    \noindent The \texttt{get\_reward} function
-    takes the index of the arm which was pulled and the reward and increments 
-    \texttt{self.u[arm\_index]} by 1 because that arm was pulled in this iteration, 
-    and thus the total number of pulls of that arm has increased by 1. 
-    If now the total number of pulls is $n$ then the old number of pulls was
-    $n-1$, and thus the total reward before the current pull was 
-    $\text{old mean}\times(n-1)$. The new mean is 
-    $$\text{new mean} = \frac{\text{total reward}}{\text{total number of pulls}} = \frac{\text{total reward before current pull + reward of current pull}}{\text{total number of pulls}}$$
-    The new mean is set for the arm that was pulled.
-
-   \noindent The \texttt{give\_pull} function calculates the UCB 
-   for each arm as $ucb_a^t = \hat{p}_a^t + \sqrt{\frac{2 \ln(t)}{u_a^t}}$
-    and returns the index of the arm with the maximum UCB.
-
-    \vspace{3mm}
-   \subsection*{KL-UCB}
- \begin{figure}[H]
-    \begin{center}
-        \includegraphics[width=0.8\textwidth]{../images/plot1.png}
-        
-        \caption{Regret vs Horizon for KL-UCB}
-    \end{center}
- \end{figure} 
- Regret increases with horizon as expected and follows a logarithmic variation. The decrease
- in the end can be explained by negative regret generated because of the optimal arm being pulled many times.
- \begin{lstlisting}[language=Python]      
-    def KL(x ,y):
-    if x == 0 :
-        return math.log(1/(1 - y))
-    elif x == 1 :
-        return math.log(1/y)
-    return (x * math.log(x / y) + (1 - x) * math.log((1 - x) / (1 - y)))
-
-    def KL_ucb(p, u_a, t, c = 3, tol = 1e-3) : 
-        l = p
-        u = 1
-        q = (l + u)/2   
-        target = (math.log(t) + c * math.log(math.log(t)))/u_a
-        while (u - l > tol):
-            q = (l + u)/2
-            current = KL(p,q)
-            if current < target :
-                l = q
-            elif current > target :
-                u = q
-            else :
-                return q
-        return q  
-
-    class KL_UCB(Algorithm):
-    def __init__(self, num_arms, horizon):
-        super().__init__(num_arms, horizon)
-        self.first_pull = True
-        self.kl_ucbs = np.zeros(num_arms)
-        self.u = np.zeros(num_arms)
-        self.p_hat = np.zeros(num_arms)
-    
-    def give_pull(self):
-        if self.first_pull :
-            arm = int(sum(self.u))
-            if arm == (len(self.kl_ucbs) - 1) :
-                self.first_pull = False
-            return arm
-        t = sum(self.u)
-        for i in range(len(self.kl_ucbs)):
-            self.kl_ucbs[i] = KL_ucb(self.p_hat[i], self.u[i], t, c=0)
-        arm = np.argmax(self.kl_ucbs)
-        return arm
-    
-    def get_reward(self, arm_index, reward):
-        self.u[arm_index] += 1
-        n = self.u[arm_index]
-        mean = self.p_hat[arm_index]
-        new_mean = ((n - 1) / n) * mean + (reward / n)
-        self.p_hat[arm_index] = new_mean\end{lstlisting}
-    \noindent
-    \textbf{Code explanation :}\texttt{self.first\_pull} is a boolean variable
-    which is \texttt{True} till all the arms have been sampled for the first time.
-     \texttt{self.kl\_ucbs} is an array containing
-    the KL-UCBs of all the arms in a given iteration. \texttt{self.u} contains
-    the number of times each arm has been pulled till the current iteration. 
-    \texttt{self.p\_hat} contains the empirical means of all the arms
-    based on pulls till the current iteration. 
-
-    
-    \noindent The \texttt{get\_reward} function
-    takes the index of the arm which was pulled and the reward and increments 
-    \texttt{self.u[arm\_index]} by 1 because that arm was pulled in this iteration, 
-    and thus the total number of pulls of that arm has increased by 1. 
-    If now the total number of pulls is $n$ then the old number of pulls was
-    $n-1$, and thus the total reward before the current pull was 
-    $\text{old mean}\times(n-1)$. The new mean is 
-    $$\text{new mean} = \frac{\text{total reward}}{\text{total number of pulls}} = \frac{\text{total reward before current pull + reward of current pull}}{\text{total number of pulls}}$$
-    The new mean is set for the arm that was pulled.
-
-   \noindent The \texttt{give\_pull} function samples each arm once for the first \texttt{num\_arms} times. 
-    From then on it calculates the KL-UCB for each arm as $q$ \text{such that }
-    $$\texttt{self.u[arm\_index]}\times KL(\texttt{self.p\_hat[arm\_index]}, q) = \ln(t) + c \ln(\ln(t))$$ and returns 
-    the index of the arm with the highest KL-UCB. The value of $c$ used here is 0. The value of $q$ is
-    found using binary search because $KL(p,p) = 0$ and $KL(p,1) = \infty$ and it increases as the second argument increases
-    from $p$ to 1. The function \texttt{KL\_ucb} does exactly this with a tolerance in the value of q 
-    of about $10^{-3}$. The function \texttt{KL(x,y)} returns the KL divergence of 2 bernoulli distributions 
-    with means \texttt{x} and \texttt{y}.
-
-\subsection*{Thompson Sampling}
- \begin{figure}[H]
-    \begin{center}
-        \includegraphics[width=0.8\textwidth]{../images/plot1.png}
-        \caption{Regret vs Horizon for Thompson Sampling}
-    \end{center}
- \end{figure}
- Regret increases with horizon as expected 
-
- \begin{lstlisting}[language=Python]      
-    class Thompson_Sampling(Algorithm):
-    def __init__(self, num_arms, horizon):
-        super().__init__(num_arms, horizon)
-        self.sa = np.zeros(num_arms)
-        self.fa = np.zeros(num_arms)
-        self.t_samples = np.zeros(num_arms)
-    
-    def give_pull(self):
-        for i in range(len(self.t_samples)) :
-            self.t_samples[i] = np.random.beta(self.sa[i] + 1, self.fa[i] + 1)
-        return np.argmax(self.t_samples)
-    
-    def get_reward(self, arm_index, reward):
-        self.sa[arm_index] += reward
-        self.fa[arm_index] += 1 - reward        \end{lstlisting}
-    
+def vi(self):
+    tol = 1e-7
+    V_old = np.zeros(self.numStates)
+    V_new, Pi = self.B_star(V_old)
+    count = 0
+    delta = np.linalg.norm(V_new - V_old)
+    while delta > tol :
+        V_old = V_new
+        V_new, Pi = self.B_star(V_old)
+        count += 1
+        delta = np.linalg.norm(V_new - V_old)
+    return V_new, Pi
+\end{lstlisting}
 \noindent
-\textbf{Code explanation :} \texttt{self.sa} stores the number of successes(reward=1) of 
-all the arms until the current iteration. \texttt{self.fa} stores the number of failures(reward=0) of 
-all the arms until the current iteration. \texttt{self.t\_samples} stores 
-the samples drawn from the beta distribution corresponding to each arm. 
+\textbf{Code explanation :} The function \texttt{B\_star} is the Bellman optimality 
+operator, which takes a Value function $V_t$ and returns $B^* (V_t)$ as $$ 
+(B^*(V_t))(s) = \max_{a \in A} \sum\limits_{s' \in S} T(s, a, s')\{R(s, a, s') + \gamma V_t(s')\}
+$$ I vectorised the 
+code for this function by using \texttt{numpy} arrays (lines 5, 6 and 7 axis = 0 corresponds
+to $s$, axis = 1 corresponds to $a$ and axis = 2 corresponds to $s'$). It also returns a 
+policy consisting on an action for each state which gives the maximum Value function. 
+The function \texttt{vi} first initialises a value function which is 0 for all the states and then
+iteratively applies the Bellman optimality operator on it till the $L_2$ norm of the difference between the successive 
+value functions becomes less than $10^{-7}$. It returns this value function and policy which are close to the
+optimal value function and optimal policy respectively. 
+    \newpage
+   \subsection*{Linear Programming}
 
-\noindent The \texttt{get\_reward} function takes the arm index and the reward and increases the successes of
-that arm by 1 if the reward is 1 and increases the failures of that arm by 1 if the reward is 0
+\begin{lstlisting}[language=Python]      
+def evaluate_value(self, Pi):
+    b = np.zeros(self.numStates)
+    A = np.zeros((self.numStates, self.numStates))
+    for i in range(self.numStates):
+        b[i] = -np.sum(self.T[i, Pi[i], :] * self.R[i, Pi[i], :])
+        A[i, :] = self.T[i, Pi[i], :] * self.gamma
+        A[i, i] -= 1
+    V_new = np.linalg.solve(A, b)
+    return V_new
 
-\noindent The \texttt{give\_pull} function draws, for each arm, samples from 
-$$\beta(\texttt{self.sa[arm\_index]}+1,\texttt{self.fa\_[arm\_idex]}+1)$$
-and returns the index of the arm whose $\beta$ distribution gives the greatest sample.
+def action_value(self, s, a, V):
+    T_sa = self.T[s, a, :]
+    R_sa = self.R[s, a, :]
+    q = np.sum(T_sa * (R_sa + self.gamma * V))
+    return q
 
+def get_pi_star(self, V):
+    Pi = np.zeros(self.numStates, dtype=np.int32)
+    for i in range(self.numStates):
+        avals = np.zeros(self.numActions)
+        for j in range(self.numActions):
+            avals[j] = self.action_value(i, j, V)
+        Pi[i] = np.argmax(avals)
+    return Pi
+
+def lp(self):
+    prob = pulp.LpProblem('OptimalPolicyFinder', pulp.LpMaximize)
+    variables = [pulp.LpVariable('V' + str(i)) for i in range(self.numStates)]
+    cost = -pulp.lpSum(variables)
+    prob += cost
+    for i in range(self.numStates):
+        for j in range(self.numActions):
+            sum1 = np.sum(self.T[i, j, :] * self.R[i, j, :])
+            string = pulp.lpSum(self.T[i, j, k] * self.gamma * variables[k] for k in range(self.numStates)) + sum1
+            prob += variables[i] >= string
+    prob.solve(pulp.PULP_CBC_CMD(msg=0))
+    V_dict = {v.name[1:]: v.varValue for v in prob.variables()}
+    V_star = np.array([V_dict[str(i)] for i in range(self.numStates)])
+    return V_star, self.get_pi_star(V_star)
+\end{lstlisting}
+    \noindent
+    \textbf{Code explanation :} The function \texttt{evaluate\_value} evaluates the
+    value function for a given policy. I chose to use the method of solving the Bellman
+    equations for this purpose as it is more accurate when compared to the iterative method
+    of applying the Bellman operator. The function \texttt{action\_value} evaluates the 
+    action value of an action for a given state and value function. The function \texttt{get\_pi\_star}
+    returns the optimal policy when the argument passed is the optimal value function as for
+    each state it returns the action with the maximum action value. The function \texttt{lp}
+    forms the constraints using the value function as ``n variables'' (a value for each state) and 
+    also defines the objective function as discussed in class. It then uses the PuLP solver to 
+    solve the linear programming problem and obtain the optimal value function, and also
+    calculates the optimal policy by invoking \texttt{get\_pi\_star}.
+    \\ \texttt{V\_dict} stores the mapping from the value function of the states to the 
+    PuLP variables
+\newpage
+\subsection*{Howard's Policy Iteration}
+ 
+
+ \begin{lstlisting}[language=Python]      
+def improving_actions(self, V_pi, s):
+    action_values = np.array([self.action_value(s, i, V_pi) for i in range(self.numActions)])
+    IA = np.where(action_values - V_pi[s] > 1e-9)[0]
+    return IA.tolist()
+
+def improvable_states(self, Pi):
+    V_pi = self.evaluate_value(Pi)
+    improving_actions_all = [self.improving_actions(V_pi, i) for i in range(self.numStates)]
+    IS_indices = np.where(np.array([len(ia) > 0 for ia in improving_actions_all]))[0]
+    IS = {i: improving_actions_all[i] for i in IS_indices}
+    return IS
+
+
+def hpi(self):
+    Pi = np.zeros(self.numStates, dtype=np.int32)
+    IS = self.improvable_states(Pi)
+    
+    while IS:
+        improvable_states_indices = list(IS.keys())
+        random_actions = np.array([random.choice(IS[i]) for i in improvable_states_indices])
+        Pi[improvable_states_indices] = random_actions
+        IS = self.improvable_states(Pi)
+    
+    Vpi = self.evaluate_value(Pi)
+    return Vpi, Pi      
+\end{lstlisting}
+\noindent
+    \textbf{Code explanation :} The function \texttt{improving\_actions} returns all the actions
+    that have an action value greater than the given value function for a given state. The function \texttt{improvable\_states}
+    returns all the states which have one or more improving actions. The function \texttt{hpi}
+    initialises a policy which chooses action 0 for all states and then finds all the improvable states and the corresponding improving
+    actions and picks an improving action uniformly for all the improvable states. It does this
+    iteratively till the number of improvable states becomes zero. 
+    \\[2\baselineskip] Value iteration was easily vectorisable as compared to linear programming
+    and Howard's policy iteration.
+    \newpage
+\section*{Task 2}
+\subsection*{Formulation of the MDP}
+I did the following to formulate the MDP :
+\begin{enumerate}
+    \item The total number of states possible are $16 \times 16 \times 16 \times 2 + 2 = 8194$, where
+    8192 states are the permutations of positions of B1, B2 and R on the $4\times4$ grid and the possession of ball. The remaining 
+    2 states are terminal states, one for a WIN and one for a LOSS. 
+    \item For each of the 8194 states there are 10 actions possible and we need to assign the transition probabilities to all these actions in each state. To begin with I assigned all the transitions a 0 probability and then changed all the non-zero transition probabilities.
+    \item The states 0 to 8191 are, in the same order, the ones in the opponent policy file and 8192 is the state for a LOSS and 8193 for a WIN. So
+    the transition from state 8192 on taking any action is 0 for all states and 1 for 8192. Same holds for the state 8193.
+    \item Now we iterate through the remaining states(0 to 8191) and the 10 actions for each state. For each of these states we obtain the opponent's policy
+    and compute the possible positions of R for a given state. For each of these positions of R, I then evaluated the probabilities
+    of winning, losing, moving, passing and getting tackled as described. 
+    \item This probability should be multiplied with the probability that R moves to that particular position. I created a dictionary which contains a mapping from player positions and possession to the state indices, which I used
+    to compute the new state that the transition occurs to, and increased the array of transition probabilities at that index by the computed probability. I also populated the probability of a LOSS or WIN. 
+    \item I set the reward function to be zero for all transitions, except for when you transition to the WIN state, for which the reward is 1.
+\end{enumerate}
+\subsection*{Analysis}
+\begin{figure}[H]
+    \begin{center} 
+        \includegraphics[width=1\textwidth]{../images/plot3.png}
+        \caption*{Variation in probability of winning with $p$ and $q$ for starting position = [05, 09, 08, 1]}
+    \end{center}
+ \end{figure}
+The variation of probability of winning with $p$ and $q$ matches with out intuition as 
+for lower values of $p$, the probability that a moving player loses possession is low and also the probability
+that they get tackled is low. For high values of $q$ the probability that a pass is successful is high 
+and the probability of scoring a goal on shooting is also high. Thus probability of winning show decrease with increase in $p$
+and increase with increase in $q$ intuitively.
+\noindent
+\\
+\\
+I also evaluated the probabilities of winning from a starting position of [05, 09, 08, 1]
+for the same values of $p = 0.25$ and $q = 0.75$ but for different opponent policies. 
+The results were as follows :
+\begin{itemize}
+    \item Greedy defense : 0.175
+    \item Park the bus : 0.0875
+    \item Random policy : 0.1552
+\end{itemize}
+This indicates that Greedy defense is the best policy for the starting position of [05, 09, 08, 1]
 \end{document}
  
