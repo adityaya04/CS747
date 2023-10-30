@@ -119,7 +119,6 @@ if __name__ == "__main__":
     else:
         assert args.level_x < config.num_levels and args.level_x >= 0, "Invalid level chosen"
         MAX_TRIES = 30 - 2*args.level_x
-        # MAX_TRIES = 3000
         num_tries_arr = []
         eps = args.level_x
         config.curr_level = eps
@@ -184,8 +183,8 @@ if __name__ == "__main__":
         if args.generate_stats:
             stats["mean_tries"] = sum(num_tries_arr) / len(num_tries_arr) if len(num_tries_arr) != 0 else 0
             stats["total_simulation_time"] = time_elapsed
-            stats["average_episode_time"] = time_elapsed / (eps + 1)
-            stats["number_episodes_played"] = eps + 1
+            stats["average_episode_time"] = time_elapsed / (1)
+            stats["number_episodes_played"] = 1
             print(stats)
             
         print(f"#### Levels passed : {levels_passed} out of {num_runs} ####")

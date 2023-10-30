@@ -7,7 +7,7 @@ import utils
 import time
 import config
 import numpy
-random.seed(62)
+random.seed(32)
 
 PI = math.pi
 ANGLE = numpy.linspace(-1,1,200)
@@ -53,6 +53,18 @@ class Agent:
         dist = numpy.sqrt(dist)
         return dist
     
+    def get_force(distance, valid = True):
+        if valid :
+            if distance > 200 :
+                f = 0.5
+            else :
+                f = 0.25
+        else :
+            if distance > 200 :
+                f = 0.8
+            else :
+                f = 0.8
+    
     def pot_ball(self, ballx, bally, cue_angle, d):
         hole_angles = self.hole_angle(ballx, bally)
         theta_m = PI/2 - math.asin(self.ball_radius * 2/d)
@@ -71,6 +83,7 @@ class Agent:
             
         ret_angle = 0
         force = 0
+
         if len(valid_shot_angles) > 0 :
             ret_angle = -min(numpy.absolute(valid_shot_angles)) - cue_angle
             # print((-min(numpy.absolute(valid_shot_angles)))*180/PI)
@@ -82,17 +95,14 @@ class Agent:
             ret_angle = -cue_angle
             force = 1
 
-        # print(valid_holes)
+        print((ret_angle + cue_angle) * 180/PI)
         return [ret_angle, force]
     
-    def choose_ball(self, actions, index = 1):
-        min_key = None
-        min_value = float('inf')
-        for key, arr in actions.items():
-            if arr[index] < min_value:
-                min_key = key
-                min_value = arr[index]
-        return min_key
+    def choose_ball(self, actions, dist):
+        force = [actions[i][1] for i in actions.keys()]
+        force = numpy.array(force)
+        cost = force + dist/200
+        return numpy.argmin(cost)
 
 
     def action(self, ball_pos=None):
@@ -100,7 +110,7 @@ class Agent:
         balls.remove('white')
         if 0 in balls :
             balls.remove(0)
-        # balls.sort()
+        balls.sort()
         cue_x, cue_y = ball_pos['white']
         x_coords = [ball_pos[i][0] for i in balls]
         y_coords = [ball_pos[i][1] for i in balls]
@@ -110,9 +120,9 @@ class Agent:
         actions_for_balls = {}
         for i, ball in enumerate(balls) :
             actions_for_balls[i] = self.pot_ball(x_coords[i], y_coords[i], theta_CB[i], dist[i]) # [angle, force]
-        chosen_ball = self.choose_ball(actions_for_balls, 1)
+        chosen_ball = self.choose_ball(actions_for_balls, dist)
         # chosen_ball = 0
-        print(actions_for_balls)
         shot_angle = actions_for_balls[chosen_ball][0]
         force = actions_for_balls[chosen_ball][1]
+        time.sleep(1)
         return (shot_angle/PI ,force)
