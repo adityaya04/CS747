@@ -10,7 +10,7 @@ import numpy
 
 # Head on shooting is bad when balls cant go to any hole
 # Make use of side rails bounces
-
+# Dont choose hole with min angle error
 
 PI = math.pi
 ANGLE = numpy.linspace(-1,1,200)
@@ -57,9 +57,13 @@ class Agent:
         theta_BH = -numpy.arctan2(hole_y + bally, hole_x - ballx) + PI/2
         theta_BH = wrap_angle(theta_BH)
         # for i in range(6):
-        #     if abs(PI/2 - abs(theta_BH[i])) < PI/12 :
-        #         theta_BH[i] += sign(theta_BH[i])*(PI/2 - abs(theta_BH[i]))*0.8 
+        #     if abs(PI/2 - abs(theta_BH[i])) < PI/24 :
+        #         theta_BH[i] = sign(theta_BH[i])*(PI/2)
         return theta_BH
+    
+    def hole_dist(self, ballx, bally):
+        hole_x, hole_y = self.holes[:,0], -self.holes[:,1]
+        d = numpy.sqrt((hole_x - ballx)**2 + (hole_y - bally)**2)
 
     def cue_dist(self, ballx, bally, cuex, cuey):
         dist = numpy.square(ballx - cuex) + numpy.square(bally - cuey)
@@ -68,16 +72,17 @@ class Agent:
     
     def get_force(self, distance_to_ball, distance_to_hole = None, valid = True, angle_dev = None):
         if valid :
-            # f = (0.3*distance_to_hole**2 + 0.6*distance_to_ball**2)/100000
-            f = (0.3*distance_to_hole**2 + 0.65*distance_to_ball**2)/40000
-            # f *= angle_dev*10
+            # f = (0.3*distance_to_hole**2 + 0.65*distance_to_ball**2)/40000
+            f = (0.25*distance_to_hole + 0.5*distance_to_ball)/400
+            f *= (1 + 4*abs(angle_dev))
+            # f *= (1 + 0.01/math.cos(angle_dev))
         else :
-            f = distance_to_ball**2/100000
+            f = 0.01 + distance_to_ball/600
         return f
     
     def pot_ball(self, ballx, bally, cue_angle, d):
         hole_angles = self.hole_angle(ballx, bally)
-        theta_m = PI/2 #- math.asin(self.ball_radius * 2/d)
+        theta_m = PI/2 - math.asin(self.ball_radius * 2/d)
         valid_holes = []
         angle_error = hole_angles - cue_angle
         l = numpy.sqrt(d**2 + 4*(self.ball_radius**2) - 4 * d * self.ball_radius * numpy.cos(angle_error))
@@ -85,18 +90,19 @@ class Agent:
         for i in range(6):
             if abs(angle_error[i]) < theta_m :
                 valid_holes.append(i)
+            
         valid_shot_angles = []
         for hole in range(6):
-            # if hole not in valid_holes :
-                # continue
+            if hole not in valid_holes :
+                continue
             valid_shot_angles.append(shot_angle[hole])
             
         ret_angle = 0
         force = 0
-
         if len(valid_shot_angles) > 0 :
-            idx = numpy.argmin(numpy.absolute(valid_shot_angles))
-            ret_angle = -numpy.min(numpy.absolute(valid_shot_angles)[idx]) 
+            cost = numpy.absolute(valid_shot_angles)
+            idx = numpy.argmin(cost)
+            ret_angle = valid_shot_angles[idx]
             # print((-min(numpy.absolute(valid_shot_angles)))*180/PI)
             # ret_angle = -cue_angle -valid_shot_angles[self.closest_hole(ballx, bally, valid_holes)]
             # force = 0.8*d/1000 + 0.1
@@ -104,49 +110,15 @@ class Agent:
             d_idx = numpy.sqrt((self.holes[idx,0] - ballx)**2 + (self.holes[idx,1] - bally)**2)
             force = self.get_force(d, distance_to_hole = d_idx, valid = True, angle_dev = ret_angle)
         else :
-            # print(" GOING BLIND")
+            print(" GOING BLIND")
             ret_angle = 0
             # force = 1
             force = self.get_force(d, valid = False)
-        ret_angle -= cue_angle
+        # ret_angle -= cue_angle
         # print((ret_angle + cue_angle) * 180/PI)
+        # print(ballx, bally, (ret_angle - cue_angle)*180/PI)
         return [ret_angle, force]
     
-    def error_actuation(self, ballx, bally, cue_angle, d):
-        hole_angles = self.hole_angle(ballx, bally)
-        theta_m =PI/2 - math.asin(self.ball_radius * 2/d)
-        valid_holes = []
-        angle_error = hole_angles - cue_angle
-        l = numpy.sqrt(d**2 + 4*(self.ball_radius**2) - 4 * d * self.ball_radius * numpy.cos(angle_error))
-        shot_angle = numpy.arcsin(2 * self.ball_radius * numpy.sin(angle_error) / l)
-        for i in range(6):
-            if abs(angle_error[i]) < theta_m :
-                valid_holes.append(i)
-        valid_shot_angles = []
-        for hole in range(6):
-            # if hole not in valid_holes :
-                # continue
-            valid_shot_angles.append(shot_angle[hole])
-            
-        ret_angle = 0
-        force = 0
-
-        if len(valid_shot_angles) > 0 :
-            idx = numpy.argmin(numpy.absolute(valid_shot_angles))
-            ret_angle = numpy.min(numpy.absolute(valid_shot_angles)[idx]) 
-            # print((-min(numpy.absolute(valid_shot_angles)))*180/PI)
-            # ret_angle = -cue_angle -valid_shot_angles[self.closest_hole(ballx, bally, valid_holes)]
-            # force = 0.8*d/1000 + 0.1
-            # force = 0.5
-            d_idx = numpy.sqrt((self.holes[idx,0] - ballx)**2 + (self.holes[idx,1] - bally)**2)
-            force = self.get_force(d, distance_to_hole = d_idx, valid = True, angle_dev = ret_angle)
-        else :
-            # print(" GOING BLIND")
-            ret_angle = 0
-            # force = 1
-            force = self.get_force(d, valid = False)
-            ret_angle -= cue_angle
-        return [ret_angle, force]
     
     def value(self, ball_pos):
         balls = list(ball_pos.keys())
@@ -162,11 +134,10 @@ class Agent:
         theta_CB = wrap_angle(theta_CB)
         value = 0
         for i, ball in enumerate(balls) :
-            angle, force = self.error_actuation(x_coords[i], y_coords[i], theta_CB[i], dist[i])
-            if angle != 0 :
-                value += 0.0001/abs(angle)
+            angle, force = self.pot_ball(x_coords[i], y_coords[i], theta_CB[i], dist[i])
+            # if angle != 0 :
+            #     value += 0.0001/abs(angle)
             value -= force/10
-        # print(value)
         return value
     
     def choose_ball(self, actions, ball_pos):
@@ -179,7 +150,7 @@ class Agent:
         for i in actions.keys():
             next_state = self.ns.get_next_state(ball_pos, actions[i], seed=10)
             value = self.value(next_state)
-            if len(next_state.keys())-2 > no_of_balls:
+            if len(next_state.keys())-2 < no_of_balls:
                 return actions[i]
             if value > curr_value :
                 action = i
@@ -189,19 +160,18 @@ class Agent:
 
 
     def action(self, ball_pos=None):
-        self.holes[0,0] = 40 + 24*2
-        self.holes[0,1] = 40 + 24*2
-        self.holes[1,0] = 40 + 24*2
-        self.holes[1,1] = 460 - 24*2
+        self.holes[0,0] = 40 + 24*1
+        self.holes[0,1] = 40 + 24*1
+        self.holes[1,0] = 40 + 24*1
+        self.holes[1,1] = 460 - 24*1
         self.holes[2,0] = 500
-        self.holes[2,1] = 40 + 24*2
+        self.holes[2,1] = 40 + 24*0
         self.holes[3,0] = 500
-        self.holes[3,1] = 460 - 24*2
-        self.holes[4,0] = 960 - 24*2
-        self.holes[4,1] = 40 + 24*2
-        self.holes[5,0] = 960 - 24*2
-        self.holes[5,1] = 460 - 24*2
-        print(self.holes)
+        self.holes[3,1] = 460 - 24*0
+        self.holes[4,0] = 960 - 24*1
+        self.holes[4,1] = 40 + 24*1
+        self.holes[5,0] = 960 - 24*1
+        self.holes[5,1] = 460 - 24*1
         balls = list(ball_pos.keys())
         balls.remove('white')
         if 0 in balls :
@@ -216,10 +186,13 @@ class Agent:
         actions_for_balls = {}
         for i, ball in enumerate(balls) :
             actions_for_balls[i] = self.pot_ball(x_coords[i], y_coords[i], theta_CB[i], dist[i]) # [angle, force]
+            actions_for_balls[i][0] -= theta_CB[i]
+            
         # chosen_ball = self.choose_ball(actions_for_balls, ball_pos)
         # chosen_ball = 0
         # shot_angle = actions_for_balls[chosen_ball][0]
         # force = actions_for_balls[chosen_ball][1]
         shot_angle, force = self.choose_ball(actions_for_balls, ball_pos)
-        # time.sleep(1)
+        # print(-shot_angle*180/PI)
         return (shot_angle/PI ,force)
+    
