@@ -73,9 +73,9 @@ class Agent:
     def get_force(self, distance_to_ball, distance_to_hole = None, valid = True, angle_dev = None):
         if valid :
             # f = (0.3*distance_to_hole**2 + 0.65*distance_to_ball**2)/40000
-            f = (0.25*distance_to_hole + 0.5*distance_to_ball)/400
+            f = (0.25*distance_to_hole + 0.5*distance_to_ball)/500
             f *= (1 + 4*abs(angle_dev))
-            # f *= (1 + 0.01/math.cos(angle_dev))
+            # f *= (1 + 3*abs(math.sin(angle_dev)))
         else :
             f = 0.01 + distance_to_ball/600
         return f
@@ -103,10 +103,6 @@ class Agent:
             cost = numpy.absolute(valid_shot_angles)
             idx = numpy.argmin(cost)
             ret_angle = valid_shot_angles[idx]
-            # print((-min(numpy.absolute(valid_shot_angles)))*180/PI)
-            # ret_angle = -cue_angle -valid_shot_angles[self.closest_hole(ballx, bally, valid_holes)]
-            # force = 0.8*d/1000 + 0.1
-            # force = 0.5
             d_idx = numpy.sqrt((self.holes[idx,0] - ballx)**2 + (self.holes[idx,1] - bally)**2)
             force = self.get_force(d, distance_to_hole = d_idx, valid = True, angle_dev = ret_angle)
         else :
@@ -114,9 +110,6 @@ class Agent:
             ret_angle = 0
             # force = 1
             force = self.get_force(d, valid = False)
-        # ret_angle -= cue_angle
-        # print((ret_angle + cue_angle) * 180/PI)
-        # print(ballx, bally, (ret_angle - cue_angle)*180/PI)
         return [ret_angle, force]
     
     
@@ -141,37 +134,47 @@ class Agent:
         return value
     
     def choose_ball(self, actions, ball_pos):
-        # force = [actions[i][1] for i in actions.keys()]
-        # force = numpy.array(force)
-        # cost = force + dist/200
+        force = [actions[i][1] for i in actions.keys()]
+        angle = [abs(actions[i][0]) for i in actions.keys()]
+        force = numpy.array(force)
+        angle = numpy.array(angle)
+        alpha = 0.5
+        cost = alpha * force + (1 - alpha) * angle
         no_of_balls = len(actions.keys())
-        curr_value = -float('inf')
-        action = 0
         for i in actions.keys():
             next_state = self.ns.get_next_state(ball_pos, actions[i], seed=10)
-            value = self.value(next_state)
             if len(next_state.keys())-2 < no_of_balls:
                 return actions[i]
-            if value > curr_value :
-                action = i
-                curr_value = value
-        # print(curr_value)
-        return actions[action]
+        return actions[numpy.argmin(cost)]
+        # cost = force + dist/200
+        # no_of_balls = len(actions.keys())
+        # curr_value = -float('inf')
+        # action = 0
+        # for i in actions.keys():
+        #     next_state = self.ns.get_next_state(ball_pos, actions[i], seed=10)
+        #     value = self.value(next_state)
+        #     if len(next_state.keys())-2 < no_of_balls:
+        #         return actions[i]
+        #     if value > curr_value :
+        #         action = i
+        #         curr_value = value
+        # return actions[action]
 
 
     def action(self, ball_pos=None):
-        self.holes[0,0] = 40 + 24*1
-        self.holes[0,1] = 40 + 24*1
-        self.holes[1,0] = 40 + 24*1
-        self.holes[1,1] = 460 - 24*1
+        dcorner = 1.3
+        self.holes[0,0] = 40 + 24*dcorner
+        self.holes[0,1] = 40 + 24*dcorner
+        self.holes[1,0] = 40 + 24*dcorner
+        self.holes[1,1] = 460 - 24*dcorner
         self.holes[2,0] = 500
         self.holes[2,1] = 40 + 24*0
         self.holes[3,0] = 500
         self.holes[3,1] = 460 - 24*0
-        self.holes[4,0] = 960 - 24*1
-        self.holes[4,1] = 40 + 24*1
-        self.holes[5,0] = 960 - 24*1
-        self.holes[5,1] = 460 - 24*1
+        self.holes[4,0] = 960 - 24*dcorner
+        self.holes[4,1] = 40 + 24*dcorner
+        self.holes[5,0] = 960 - 24*dcorner
+        self.holes[5,1] = 460 - 24*dcorner
         balls = list(ball_pos.keys())
         balls.remove('white')
         if 0 in balls :
