@@ -170,11 +170,11 @@ class Agent:
         alpha = 0.2
         cost = alpha * force + (1 - alpha) * angle
         no_of_balls = len(actions.keys())
-        # for i in actions.keys():
-        #     next_state = self.ns.get_next_state(ball_pos, actions[i], seed=10)
-        #     if len(next_state.keys())-2 < no_of_balls:
-        #         print("returning from sim")
-        #         return actions[i]
+        for i in actions.keys():
+            next_state = self.ns.get_next_state(ball_pos, [actions[i][0]/PI,actions[i][1]], seed=10)
+            if len(next_state.keys())-2 < no_of_balls:
+                print("returning from sim")
+                return actions[i]
         return actions[numpy.argmin(cost)]
         # return random.choice(actions)
 

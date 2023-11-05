@@ -18,7 +18,7 @@ def parser():
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--level-all', action='store_true')
     parser.add_argument('--level-x', type=int, default=0)
-    parser.add_argument('--seed', type=int, default=72)
+    parser.add_argument('--seed', type=int, default=18)
     parser.add_argument('--trace-file-prefix', type=str, default="traces/trace")
 
     return parser.parse_args()
