@@ -36,6 +36,7 @@ class Agent:
         self.holes =[]
         self.prev_balls = None
         self.ns = utils.NextState()
+        self.i = 0
 
     def set_holes(self, holes_x, holes_y, radius):
         for x in holes_x:
@@ -44,25 +45,22 @@ class Agent:
         self.holes = numpy.array(self.holes)
         self.ball_radius = radius
 
-    def closest_hole(self, ballx, bally, valid_holes):
+    def closest_hole(self, ballx, bally):
         hole_dist = self.cue_dist(self.holes[:,0], self.holes[:,1], ballx, bally)
-        new_holes_dist = []
-        for i in range(6):
-            if i in valid_holes:
-                new_holes_dist.append(hole_dist[i])
-        return numpy.argmin(numpy.array(new_holes_dist))
+        return numpy.min((numpy.array(hole_dist)))
 
     def hole_angle(self, ballx, bally, theta_CB = None, d = None):
         hole_x, hole_y = self.holes[:,0], -self.holes[:,1]
         theta_BH = -numpy.arctan2(hole_y + bally, hole_x - ballx) + PI/2
         theta_BH = wrap_angle(theta_BH)
         hole_fov = PI/6
-        correction_factor = 2 * 1e-3
+        correction_factor = 190 * 1e-3
         # print("INITIAL HOLE ANGLES : ", theta_BH*180/PI )
-        if d > 500 :
+        if d > 0 :
             for i in range(6):
                 if i == 0 :
                     if abs(theta_BH[i] + PI/4) > hole_fov/2 :
+                        # print("correcting hole 0")
                         if theta_BH[i] < -PI/4 :
                             theta_BH[i] -= abs(theta_BH[i] + PI/4)*correction_factor
                         else :
@@ -70,6 +68,7 @@ class Agent:
                     # theta_BH[i] = min(0,max(theta_BH[i], -PI/2))
                 elif i == 1 :
                     if abs(theta_BH[i] + 3*PI/4) > hole_fov/2 :
+                        # print("correcting hole 1")
                         if theta_BH[i] < -3*PI/4 :
                             theta_BH[i] -= abs(theta_BH[i] + 3*PI/4)*correction_factor
                         else :
@@ -77,6 +76,7 @@ class Agent:
                     # theta_BH[i] = min(-PI/2,max(theta_BH[i], -PI))
                 elif i == 4 :
                     if abs(theta_BH[i] - PI/4) > hole_fov/2 :
+                        # print("correcting hole 4")
                         if theta_BH[i] > PI/4 :
                             theta_BH[i] += abs(theta_BH[i] - PI/4)*correction_factor
                         else :
@@ -84,23 +84,17 @@ class Agent:
                     # theta_BH[i] = min(PI/2,max(theta_BH[i], 0))
                 elif i == 5 :
                     if abs(theta_BH[i] - 3*PI/4) > hole_fov/2 :
+                        # print("correcting hole 5")
                         if theta_BH[i] > 3*PI/4 :
                             theta_BH[i] += abs(theta_BH[i] - 3*PI/4)*correction_factor
                         else :
                             theta_BH[i] -= abs(theta_BH[i] - 3*PI/4)*correction_factor
-                    # theta_BH[i] = min(PI,max(theta_BH[i], PI/2))
-        # print("FINAL HOLE ANGLES : ", theta_BH*180/PI )
-            # if abs(PI/2 - abs(theta_BH[i])) < PI/10 :
-            #     theta_BH[i] = sign(theta_BH[i])*(PI/2)
-            # elif abs(theta_BH[i] < PI/10):
-            #     theta_BH[i] = 0
-            # elif PI - abs(theta_BH[i]) < PI/10 :
-            #     theta_BH[i] = PI
         return theta_BH
     
     def hole_dist(self, ballx, bally):
-        hole_x, hole_y = self.holes[:,0], -self.holes[:,1]
+        hole_x, hole_y = self.holes[:,0], self.holes[:,1]
         d = numpy.sqrt((hole_x - ballx)**2 + (hole_y - bally)**2)
+        return d
 
     def cue_dist(self, ballx, bally, cuex, cuey):
         dist = numpy.square(ballx - cuex) + numpy.square(bally - cuey)
@@ -108,16 +102,14 @@ class Agent:
         return dist
     
     def get_force(self, distance_to_ball, distance_to_hole = None, valid = True, angle_dev = None):
+        f = (0.5*distance_to_hole + 0.5*distance_to_ball)/500
         if valid :
-            # f = (0.3*distance_to_hole**2 + 0.65*distance_to_ball**2)/40000
-            # f = (0.5*distance_to_hole + 0.5*distance_to_ball)/700
+            
             # f *= (1 + 4*abs(angle_dev))
             # f *= (1 + 10*abs(math.sin(angle_dev)))
-            # f /= math.cos(angle_dev)
-            f = 0.5*distance_to_ball/500
-            f += 0.5*distance_to_hole/(500*math.cos(angle_dev))
-        else :
-            f = 0.01 + distance_to_ball/800
+            f /= math.cos(angle_dev)
+            # f = 0.45*distance_to_ball/500
+            # f += 0.45*distance_to_hole/(500*math.cos(angle_dev))
         return f
     
     def pot_ball(self, ballx, bally, cue_angle, d):
@@ -125,6 +117,7 @@ class Agent:
         theta_m = PI/2 - math.asin(self.ball_radius * 2/d)
         valid_holes = []
         angle_error = hole_angles - cue_angle
+        hole_dists = self.hole_dist(ballx, bally)
         for i in range(6):
             if abs(angle_error[i]) < theta_m :
                 valid_holes.append(i)
@@ -135,22 +128,27 @@ class Agent:
         shot_angle = numpy.arcsin(2 * self.ball_radius * numpy.sin(angle_error) / l)
             
         valid_shot_angles = []
+        valid_hole_dists = []
         for hole in range(6):
             if hole not in valid_holes :
                 continue
             valid_shot_angles.append(shot_angle[hole])
+            valid_hole_dists.append(hole_dists[hole])
             
         ret_angle = 0
         force = 0
         if len(valid_shot_angles) > 0 :
-            cost = numpy.absolute(valid_shot_angles)
+            cost = numpy.absolute(valid_shot_angles) + 0.2*numpy.array(valid_hole_dists)/600
             idx = numpy.argmin(cost)
             ret_angle = valid_shot_angles[idx]
             d_idx = numpy.sqrt((self.holes[idx,0] - ballx)**2 + (self.holes[idx,1] - bally)**2)
             force = self.get_force(d, distance_to_hole = d_idx, valid = True, angle_dev = ret_angle)
         else :
             ret_angle = 0
-            force = self.get_force(d, valid = False)
+            d_closest = self.closest_hole(ballx, bally)
+            force = self.get_force(d, distance_to_hole=d_closest ,valid = False)
+        print(ret_angle*180/PI)
+        ## CHECK WHY THIS IS BECOMING VERY SMALL SOMETIMES
         return [ret_angle, force]
     
     def choose_ball(self, actions, ball_pos):
@@ -158,18 +156,22 @@ class Agent:
         angle = [abs(actions[i][0]) for i in actions.keys()]
         force = numpy.array(force)
         angle = numpy.array(angle)
-        alpha = 0.8
+        alpha = 0.5
         cost = alpha * force + (1 - alpha) * angle
         no_of_balls = len(actions.keys())
         # for i in actions.keys():
         #     next_state = self.ns.get_next_state(ball_pos, actions[i], seed=10)
         #     if len(next_state.keys())-2 < no_of_balls:
+        #         print("returning from sim")
         #         return actions[i]
         return actions[numpy.argmin(cost)]
         # return random.choice(actions)
 
 
     def action(self, ball_pos=None):
+        self.i += 1
+        print(self.i)
+        # time.sleep(3)
         dcorner = 0
         self.holes[0,0] = 40 + 24*dcorner
         self.holes[0,1] = 40 + 24*dcorner
@@ -205,4 +207,3 @@ class Agent:
         # force = actions_for_balls[chosen_ball][1]
         shot_angle, force = self.choose_ball(actions_for_balls, ball_pos)
         return (shot_angle/PI ,force)
-    
