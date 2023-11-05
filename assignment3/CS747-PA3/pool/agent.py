@@ -63,7 +63,7 @@ class Agent:
         shot_angle = numpy.arcsin(2 * self.ball_radius * numpy.sin(angle_error) / l)
         return shot_angle
     
-    def simulate(self, ball, delta, current_state, init_dist, hole):
+    def simulate(self, ball, delta, current_state):
         forces = numpy.linspace(0.2, 1, 9)
         no_balls = len(current_state.keys())
         curr_min_dist = 2000
@@ -75,11 +75,11 @@ class Agent:
             ballx = next_state[ball][0]
             bally = next_state[ball][1]
             hole_dists = self.hole_dists(ballx, bally)
-            delta_dist = init_dist - numpy.min(hole_dists)
-            if delta_dist < curr_min_dist :
+            min_dist = numpy.min(hole_dists)
+            if min_dist < curr_min_dist :
                 optimal_force = force
-                curr_min_dist = delta_dist
-        return optimal_force, delta_dist
+                curr_min_dist = min_dist
+        return optimal_force, min_dist
             
 
     def action(self, ball_pos):
@@ -103,7 +103,7 @@ class Agent:
             # print(f"Hole {hole} for Ball {ball}")
             delta = self.get_delta(X[i], Y[i], hole, dist[i], theta_CB[i])
             delta = theta_CB[i] - delta
-            force, closest_dist = self.simulate(ball, delta/PI, ball_pos, dist[i], hole)
+            force, closest_dist = self.simulate(ball, delta/PI, ball_pos)
             shooting_angles.append(delta)
             forces.append(force)
             min_dists.append(closest_dist)
