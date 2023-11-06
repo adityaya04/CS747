@@ -98,10 +98,9 @@ class Agent:
         forces = []
         min_dists = []
         for i, ball in enumerate(balls) :
-            alpha = 0.7 # 0.7 best by far
+            alpha = 0.8 # 0.8 best by far(works for 69 and 71)
             cost = alpha*self.hole_dists(X[i], Y[i])/600 + (1-alpha)*numpy.absolute(self.hole_angles(X[i], Y[i])-theta_CB[i])
             hole = numpy.argmin(cost)
-            # print(f"Hole {hole} for Ball {ball}")
             delta = self.get_delta(X[i], Y[i], hole, dist[i], theta_CB[i])
             delta = theta_CB[i] - delta
             force, closest_dist = self.simulate(ball, delta/PI, ball_pos)
