@@ -1,1 +1,0 @@
-Code taken from [here](https://github.com/max-kov/pool) and edited for CS 747 (2023 Autumn) programming assignment 3.
